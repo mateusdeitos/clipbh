@@ -1,0 +1,32 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none"
+	xmlns="http://www.w3.org/2000/svg">
+	<!-- Fundo Estilo macOS (Squircle) -->
+	<rect x="128" y="128" width="768" height="768" rx="160" fill="url(#paint0_linear)" />
+
+	<!-- Sombra Interna -->
+	<rect x="128" y="128" width="768" height="768" rx="160" stroke="white" stroke-opacity="0.2"
+		stroke-width="4" />
+
+	<!-- Ícone de Clipboard -->
+	<path
+		d="M350 300C350 277.909 367.909 260 390 260H634C656.091 260 674 277.909 674 300V320H350V300Z"
+		fill="white" fill-opacity="0.9" />
+	<rect x="300" y="320" width="424" height="440" rx="24" fill="white" fill-opacity="0.2" />
+	<rect x="330" y="380" width="364" height="40" rx="8" fill="white" fill-opacity="0.5" />
+	<rect x="330" y="460" width="364" height="40" rx="8" fill="white" fill-opacity="0.5" />
+	<rect x="330" y="540" width="200" height="40" rx="8" fill="white" fill-opacity="0.5" />
+
+	<!-- Ícone de Histórico (Relógio) sobreposto -->
+	<circle cx="700" cy="700" r="140" fill="#10B981" />
+	<circle cx="700" cy="700" r="120" stroke="white" stroke-width="20" stroke-dasharray="500 200" />
+	<path d="M700 630V700L750 730" stroke="white" stroke-width="20" stroke-linecap="round"
+		stroke-linejoin="round" />
+
+	<defs>
+		<linearGradient id="paint0_linear" x1="512" y1="128" x2="512" y2="896"
+			gradientUnits="userSpaceOnUse">
+			<stop stop-color="#065F46" />
+			<stop offset="1" stop-color="#064E3B" />
+		</linearGradient>
+	</defs>
+</svg>

@@ -1,0 +1,31 @@
+{
+  "name": "clipbh",
+  "private": true,
+  "version": "1.2.0",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "vite:dev": "vite",
+    "vite:build": "vite build",
+    "electron:dev": "electron .",
+    "dev": "concurrently \"npm run vite:dev\" \"npm run electron:dev\"",
+    "build": "npm run vite:build && electron-builder"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.21",
+    "lucide-react": "^0.454.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sql.js": "^1.12.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.27",
+    "concurrently": "^9.0.1",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^3.4.19",
+    "vite": "^5.4.10"
+  }
+}
