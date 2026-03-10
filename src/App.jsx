@@ -5,13 +5,12 @@ import {
   Clock,
   Image as ImageIcon,
   Type,
-  XCircle,
-  Layout,
   Tag,
   X,
   Search,
   Database,
   FileIcon,
+  Check,
 } from "lucide-react";
 import { useHistory } from "./hooks/useHistory";
 
@@ -41,9 +40,9 @@ const groupByDate = (history) => {
 };
 
 const App = () => {
-  const [isWidgetMode, setIsWidgetMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [newTagInputs, setNewTagInputs] = useState({});
+  const [toast, setToast] = useState(null);
 
   const { data: groupedHistory = {}, isLoading, invalidate } = useHistory(searchQuery, groupByDate);
 
@@ -100,8 +99,14 @@ const App = () => {
     }
   };
 
+  const showToast = (message) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2000);
+  };
+
   const copyToClipboard = (item) => {
     window.electronAPI?.copyToOS(item.type, item.content);
+    showToast("Copiado para o clipboard");
   };
 
   const renderPreview = (item) => {
@@ -135,20 +140,10 @@ const App = () => {
   };
 
   return (
-    <div
-      className={`min-h-screen transition-all duration-300 ${
-        isWidgetMode
-          ? "bg-transparent"
-          : "bg-gray-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100"
-      }`}
-    >
+    <div className="min-h-screen bg-gray-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
       {/* Header Fixo */}
       <header
-        className={`sticky top-0 z-20 backdrop-blur-md border-b px-6 py-4 space-y-4 ${
-          isWidgetMode
-            ? "hidden"
-            : "bg-white/80 dark:bg-neutral-900/80 border-gray-200 dark:border-neutral-800"
-        }`}
+        className="sticky top-0 z-20 backdrop-blur-md border-b px-6 py-4 space-y-4 bg-white/80 dark:bg-neutral-900/80 border-gray-200 dark:border-neutral-800"
         style={{ WebkitAppRegion: "drag" }}
       >
         <div className="flex items-center justify-between" style={{ paddingLeft: "72px" }}>
@@ -165,12 +160,6 @@ const App = () => {
           </div>
 
           <div className="flex items-center gap-2" style={{ WebkitAppRegion: "no-drag" }}>
-            <button
-              onClick={() => setIsWidgetMode(!isWidgetMode)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-full transition-colors"
-            >
-              <Layout size={18} />
-            </button>
             <button
               onClick={clearAll}
               disabled={Object.keys(groupedHistory).length === 0}
@@ -196,13 +185,7 @@ const App = () => {
         </div>
       </header>
 
-      <main
-        className={`max-w-4xl mx-auto p-6 ${
-          isWidgetMode
-            ? "bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl mt-10"
-            : ""
-        }`}
-      >
+      <main className="max-w-4xl mx-auto p-6">
         {isLoading ? (
           <div className="flex justify-center py-20">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
@@ -285,13 +268,11 @@ const App = () => {
         )}
       </main>
 
-      {isWidgetMode && (
-        <button
-          onClick={() => setIsWidgetMode(false)}
-          className="fixed bottom-6 right-6 p-4 bg-emerald-600 text-white rounded-full shadow-2xl z-50 ring-4 ring-white dark:ring-neutral-900"
-        >
-          <XCircle size={24} />
-        </button>
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2.5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium rounded-full shadow-xl animate-fade-in z-50">
+          <Check size={14} className="text-emerald-400 dark:text-emerald-600" />
+          {toast}
+        </div>
       )}
     </div>
   );

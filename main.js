@@ -149,7 +149,7 @@ function saveEntry(type, content) {
   const res = db.exec('SELECT id, timestamp FROM history WHERE type = ? AND content = ?', [type, content]);
   const [id, timestamp] = res[0].values[0];
 
-  sendClipboardUpdate({ id, type, content, tags: [], timestamp: new Date(timestamp) });
+  sendClipboardUpdate({ id, type, content, tags: [], timestamp: new Date(timestamp.replace(' ', 'T') + 'Z') });
 }
 
 // Handlers IPC
@@ -168,7 +168,7 @@ ipcMain.handle('get-history', (event, searchQuery) => {
   while (stmt.step()) {
     const row = stmt.getAsObject();
     row.tags = JSON.parse(row.tags);
-    row.timestamp = new Date(row.timestamp);
+    row.timestamp = new Date(row.timestamp.replace(' ', 'T') + 'Z');
     results.push(row);
   }
   stmt.free();
@@ -192,8 +192,10 @@ ipcMain.handle('clear-history', () => {
 
 ipcMain.on('copy-to-os', (event, type, content) => {
   if (type === 'image') {
+    lastImageDataUrl = content;
     clipboard.writeImage(nativeImage.createFromDataURL(content));
   } else {
+    lastText = content;
     clipboard.writeText(content);
   }
 });

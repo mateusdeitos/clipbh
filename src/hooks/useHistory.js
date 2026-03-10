@@ -22,6 +22,7 @@ export function useHistory(searchQuery = "", selector) {
     queryKey: ["history", searchQuery],
     queryFn: () => win.electronAPI?.getHistory(searchQuery) ?? [],
     select: selector,
+    refetchOnWindowFocus: true,
   });
 
   return { ...query, invalidate };
