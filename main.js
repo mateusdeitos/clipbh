@@ -217,6 +217,16 @@ ipcMain.on('copy-to-os', (event, type, content) => {
 });
 
 app.whenReady().then(async () => {
-  await initDatabase();
+  try {
+    await initDatabase();
+  } catch (err) {
+    console.error('Database init failed, resetting DB:', err);
+    try { fs.unlinkSync(dbPath); } catch (_) {}
+    await initDatabase();
+  }
   createWindow();
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
