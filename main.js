@@ -43,6 +43,7 @@ function saveDatabaseToDisk() {
   fs.writeFileSync(dbPath, buffer);
 }
 
+let isWatching = true;
 let mainWindow;
 
 function createWindow() {
@@ -137,7 +138,7 @@ function sendClipboardUpdate(payload) {
 }
 
 function saveEntry(type, content) {
-  if (!db) return;
+  if (!db || !isWatching) return;
 
   db.run(
     `INSERT INTO history (type, content, tags) VALUES (?, ?, '[]')
@@ -153,6 +154,19 @@ function saveEntry(type, content) {
 }
 
 // Handlers IPC
+ipcMain.handle('get-watch-status', () => isWatching);
+
+ipcMain.handle('toggle-clipboard-watch', () => {
+  isWatching = !isWatching;
+  if (isWatching) {
+    lastText = '';
+    lastImageDataUrl = '';
+    lastFileUrl = '';
+    clipboard.clear("clipboard");
+  }
+  return isWatching;
+});
+
 ipcMain.handle('get-history', (event, searchQuery) => {
   if (!db) return [];
 

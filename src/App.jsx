@@ -11,8 +11,10 @@ import {
   Database,
   FileIcon,
   Check,
+  Pause,
 } from "lucide-react";
 import { useHistory } from "./hooks/useHistory";
+import { useToggleWatch, useWatchStatus } from "./hooks/useWatchStatus";
 
 const formatDate = (date) => {
   const d = new Date(date);
@@ -45,6 +47,8 @@ const App = () => {
   const [toast, setToast] = useState(null);
 
   const { data: groupedHistory = {}, isLoading, invalidate } = useHistory(searchQuery, groupByDate);
+  const { data: isWatching = true } = useWatchStatus();
+  const toggleWatchMutation = useToggleWatch();
 
   const deleteMutation = useMutation({
     mutationFn: (id) => window.electronAPI?.deleteEntry(id),
@@ -160,6 +164,17 @@ const App = () => {
           </div>
 
           <div className="flex items-center gap-2" style={{ WebkitAppRegion: "no-drag" }}>
+            <button
+              onClick={() => toggleWatchMutation.mutate()}
+              title={isWatching ? "Pausar monitoramento" : "Retomar monitoramento"}
+              className="p-2 rounded-lg transition-colors text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+            >
+              {isWatching ? (
+                <div className="animate-spin rounded-full h-[18px] w-[18px] border-2 border-emerald-500 border-t-transparent" />
+              ) : (
+                <Pause size={18} className="text-gray-400" />
+              )}
+            </button>
             <button
               onClick={clearAll}
               disabled={Object.keys(groupedHistory).length === 0}

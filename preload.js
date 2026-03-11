@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateTags: (id, tags) => ipcRenderer.invoke('update-tags', id, tags),
   clearHistory: () => ipcRenderer.invoke('clear-history'),
   copyToOS: (type, content) => ipcRenderer.send('copy-to-os', type, content),
+  getWatchStatus: () => ipcRenderer.invoke('get-watch-status'),
+  toggleWatch: () => ipcRenderer.invoke('toggle-clipboard-watch'),
   onClipboardUpdate: (callback) => {
     const handler = (event, item) => callback(item);
     ipcRenderer.on('clipboard-update', handler);
