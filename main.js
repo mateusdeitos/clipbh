@@ -47,6 +47,8 @@ let isWatching = true;
 let mainWindow;
 
 function createWindow() {
+  if (app.dock) app.dock.setIcon(path.join(__dirname, 'assets/icon.png'));
+
   mainWindow = new BrowserWindow({
     width: 450,
     height: 800,
