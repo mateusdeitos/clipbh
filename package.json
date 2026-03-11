@@ -4,12 +4,55 @@
   "version": "1.2.0",
   "type": "module",
   "main": "main.js",
+  "author": "Mateus Campos Deitos (@mateusdeitos)",
+  "description": "Clipboard History Manager",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mateusdeitos/clipbh"
+  },
   "scripts": {
     "vite:dev": "vite",
     "vite:build": "vite build",
     "electron:dev": "electron .",
     "dev": "concurrently \"npm run vite:dev\" \"npm run electron:dev\"",
-    "build": "npm run vite:build && electron-builder"
+    "build": "npm run vite:build && electron-builder",
+    "build:mac": "npm run vite:build && electron-builder --mac --publish never"
+  },
+  "build": {
+    "appId": "com.mateusdeitos.clipbh",
+    "productName": "ClipDB",
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.js",
+      "node_modules/**/*",
+      "!node_modules/.cache"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/sql.js/dist/sql-wasm.wasm",
+        "to": "."
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] }
+      ]
+    },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ],
+      "window": { "width": 540, "height": 380 }
+    },
+    "publish": null
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
