@@ -9,7 +9,10 @@ Go to the [Releases](https://github.com/mateusdeitos/clipbh/releases) page and d
 - **Apple Silicon (M1/M2/M3/M4)** → `ClipDB-x.x.x-arm64.dmg`
 - **Intel** → `ClipDB-x.x.x.dmg`
 
-> **Note:** The app is not signed. On first launch, macOS will block it. Go to **System Settings → Privacy & Security** and click **"Open Anyway"**.
+> **Note:** The app is not signed. If macOS says it's "damaged", run this in Terminal and reopen:
+> ```bash
+> xattr -cr /Applications/ClipDB.app
+> ```
 
 You also need to grant **Accessibility** permission so the app can monitor the clipboard without restrictions: **System Settings → Privacy & Security → Accessibility**.
 
