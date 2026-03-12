@@ -16,5 +16,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (event, item) => callback(item);
     ipcRenderer.on('clipboard-update', handler);
     return () => ipcRenderer.removeListener('clipboard-update', handler);
-  }
+  },
+  snoozeEntry: (id, durationMs) => ipcRenderer.invoke('set-snooze', id, durationMs),
+  cancelSnooze: (id) => ipcRenderer.invoke('cancel-snooze', id),
+  getActiveSnoozes: () => ipcRenderer.invoke('get-active-snoozes'),
+  onSnoozeExpired: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('snooze-expired', handler);
+    return () => ipcRenderer.removeListener('snooze-expired', handler);
+  },
+  onSnoozeFocus: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('snooze-focus', handler);
+    return () => ipcRenderer.removeListener('snooze-focus', handler);
+  },
 });
