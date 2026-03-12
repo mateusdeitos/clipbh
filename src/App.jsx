@@ -12,9 +12,20 @@ import {
   FileIcon,
   Check,
   Pause,
+  Bell,
+  BellOff,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useHistory } from "./hooks/useHistory";
 import { useToggleWatch, useWatchStatus } from "./hooks/useWatchStatus";
+import { useSnoozes, formatRemaining } from "./hooks/useSnoozes";
+import { useTheme } from "./hooks/useTheme";
+import SnoozeModal from "./components/SnoozeModal";
+import ClipPreview from "./components/ClipPreview";
+
+/** @type {{ electronAPI: import("../preload").ElectronAPI }} */
+const win = window;
 
 const formatDate = (date) => {
   const d = new Date(date);
@@ -45,23 +56,26 @@ const App = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [newTagInputs, setNewTagInputs] = useState({});
   const [toast, setToast] = useState(null);
+  const [snoozeModal, setSnoozeModal] = useState(null);
 
   const { data: groupedHistory = {}, isLoading, invalidate } = useHistory(searchQuery, groupByDate);
   const { data: isWatching = true } = useWatchStatus();
   const toggleWatchMutation = useToggleWatch();
+  const { snoozedUntil, highlightedId, itemRefs, snooze, cancelSnooze } = useSnoozes();
+  const { theme, toggleTheme } = useTheme();
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => window.electronAPI?.deleteEntry(id),
+    mutationFn: (id) => win.electronAPI?.deleteEntry(id),
     onSuccess: invalidate,
   });
 
   const updateTagsMutation = useMutation({
-    mutationFn: ({ id, tags }) => window.electronAPI?.updateTags(id, tags),
+    mutationFn: ({ id, tags }) => win.electronAPI?.updateTags(id, tags),
     onSuccess: invalidate,
   });
 
   const clearMutation = useMutation({
-    mutationFn: () => window.electronAPI?.clearHistory(),
+    mutationFn: () => win.electronAPI?.clearHistory(),
     onSuccess: invalidate,
   });
 
@@ -93,9 +107,7 @@ const App = () => {
     updateTagsMutation.mutate({ id: itemId, tags: updatedTags });
   };
 
-  const deleteEntry = (id) => {
-    deleteMutation.mutate(id);
-  };
+  const deleteEntry = (id) => deleteMutation.mutate(id);
 
   const clearAll = () => {
     if (window.confirm("Permanently delete all clipboard history?")) {
@@ -109,39 +121,15 @@ const App = () => {
   };
 
   const copyToClipboard = (item) => {
-    window.electronAPI?.copyToOS(item.type, item.content);
+    win.electronAPI?.copyToOS(item.type, item.content);
     showToast("Copied to clipboard");
   };
 
-  const renderPreview = (item) => {
-    if (item.type === "image") {
-      return (
-        <div className="relative overflow-hidden rounded-lg bg-gray-100 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-800 h-32 w-full max-w-xs">
-          <img src={item.content} alt="Preview" className="object-cover w-full h-full" />
-        </div>
-      );
-    }
-    if (item.type === "file") {
-      const filename = item.content.split("/").pop();
-      const dir = item.content.substring(0, item.content.lastIndexOf("/"));
-      return (
-        <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-neutral-900/50 rounded-lg border border-gray-100 dark:border-neutral-800">
-          <FileIcon size={28} className="text-emerald-500 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{filename}</p>
-            <p className="text-[11px] text-gray-400 font-mono truncate">{dir}</p>
-          </div>
-        </div>
-      );
-    }
-    const truncated =
-      item.content.length > 300 ? item.content.substring(0, 300) + "..." : item.content;
-    return (
-      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-mono bg-gray-50 dark:bg-neutral-900/50 p-3 rounded-lg border border-gray-100 dark:border-neutral-800 break-all">
-        {truncated}
-      </p>
-    );
+  const handleSnoozeConfirm = (id, durationMs) => {
+    setSnoozeModal(null);
+    snooze(id, durationMs);
   };
+
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
@@ -164,6 +152,13 @@ const App = () => {
           </div>
 
           <div className="flex items-center gap-2" style={{ WebkitAppRegion: "no-drag" }}>
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="p-2 rounded-lg transition-colors text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-neutral-800"
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <button
               onClick={() => toggleWatchMutation.mutate()}
               title={isWatching ? "Pause monitoring" : "Resume monitoring"}
@@ -220,68 +215,113 @@ const App = () => {
               </div>
 
               <div className="space-y-4">
-                {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="group relative grid grid-cols-[1fr_auto] gap-4 p-5 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-2xl hover:shadow-xl hover:border-emerald-300 dark:hover:border-emerald-900 transition-all"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 text-xs text-gray-400 font-medium mb-3">
-                        <Clock size={12} />
-                        {item.timestamp.toLocaleTimeString("en-US", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        <span className="mx-1">•</span>
-                        {item.type === "text" ? <Type size={12} /> : item.type === "image" ? <ImageIcon size={12} /> : <FileIcon size={12} />}
-                        <span className="uppercase text-[10px]">{item.type}</span>
+                {items.map((item) => {
+                  const isSnoozed = !!snoozedUntil[item.id];
+                  const remaining = isSnoozed ? formatRemaining(snoozedUntil[item.id]) : null;
+                  const isHighlighted = highlightedId === item.id;
+
+                  return (
+                    <div
+                      key={item.id}
+                      ref={(el) => { itemRefs.current[item.id] = el; }}
+                      className={`group relative grid grid-cols-[1fr_auto] gap-4 p-5 bg-white dark:bg-neutral-900 border rounded-2xl hover:shadow-xl transition-all ${
+                        isHighlighted
+                          ? 'border-yellow-400 dark:border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 shadow-xl'
+                          : 'border-gray-200 dark:border-neutral-800 hover:border-emerald-300 dark:hover:border-emerald-900'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-xs text-gray-400 font-medium mb-3">
+                          <Clock size={12} />
+                          {item.timestamp.toLocaleTimeString("en-US", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                          <span className="mx-1">•</span>
+                          {item.type === "text" ? <Type size={12} /> : item.type === "image" ? <ImageIcon size={12} /> : <FileIcon size={12} />}
+                          <span className="uppercase text-[10px]">{item.type}</span>
+                          {isSnoozed && remaining && (
+                            <>
+                              <span className="mx-1">•</span>
+                              <Bell size={12} className="text-amber-500" />
+                              <span className="text-amber-500 text-[10px] font-semibold">
+                                Snooze: {remaining}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="cursor-pointer mb-4" onClick={() => copyToClipboard(item)}>
+                          <ClipPreview item={item} />
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                          <Tag size={12} className="text-gray-400" />
+                          {item.tags?.map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold rounded-full border border-emerald-100 dark:border-emerald-800"
+                            >
+                              #{tag}
+                              <button onClick={() => handleRemoveTag(item.id, tag)}>
+                                <X size={10} />
+                              </button>
+                            </span>
+                          ))}
+                          <input
+                            type="text"
+                            placeholder="Tag..."
+                            className="text-[11px] bg-transparent border-b border-dashed border-gray-300 dark:border-neutral-700 focus:border-emerald-500 outline-none px-1 w-20"
+                            value={newTagInputs[item.id] || ""}
+                            onChange={(e) =>
+                              setNewTagInputs({ ...newTagInputs, [item.id]: e.target.value })
+                            }
+                            onKeyDown={(e) => e.key === "Enter" && handleAddTag(item.id)}
+                          />
+                        </div>
                       </div>
 
-                      <div className="cursor-pointer mb-4" onClick={() => copyToClipboard(item)}>
-                        {renderPreview(item)}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 mt-3">
-                        <Tag size={12} className="text-gray-400" />
-                        {item.tags?.map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold rounded-full border border-emerald-100 dark:border-emerald-800"
+                      <div className="flex flex-col gap-1">
+                        {isSnoozed ? (
+                          <button
+                            onClick={() => cancelSnooze(item.id)}
+                            title="Cancel snooze"
+                            className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg text-amber-500 hover:text-amber-600 transition-colors"
                           >
-                            #{tag}
-                            <button onClick={() => handleRemoveTag(item.id, tag)}>
-                              <X size={10} />
-                            </button>
-                          </span>
-                        ))}
-                        <input
-                          type="text"
-                          placeholder="Tag..."
-                          className="text-[11px] bg-transparent border-b border-dashed border-gray-300 dark:border-neutral-700 focus:border-emerald-500 outline-none px-1 w-20"
-                          value={newTagInputs[item.id] || ""}
-                          onChange={(e) =>
-                            setNewTagInputs({ ...newTagInputs, [item.id]: e.target.value })
-                          }
-                          onKeyDown={(e) => e.key === "Enter" && handleAddTag(item.id)}
-                        />
+                            <BellOff size={18} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setSnoozeModal(item.id)}
+                            title="Snooze"
+                            className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-gray-400 hover:text-emerald-500 transition-colors"
+                          >
+                            <Bell size={18} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => deleteEntry(item.id)}
+                          className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </div>
                     </div>
-
-                    <div>
-                      <button
-                        onClick={() => deleteEntry(item.id)}
-                        className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           ))
         )}
       </main>
+
+      {snoozeModal !== null && (
+        <SnoozeModal
+          itemId={snoozeModal}
+          onConfirm={handleSnoozeConfirm}
+          onCancel={() => setSnoozeModal(null)}
+        />
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2.5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium rounded-full shadow-xl animate-fade-in z-50">
