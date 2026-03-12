@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, nativeImage } from 'electron';
+import { app, BrowserWindow, clipboard, ipcMain, nativeImage, screen } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -45,6 +45,94 @@ function saveDatabaseToDisk() {
 
 let isWatching = true;
 let mainWindow;
+
+// Snooze timers: id → { handle, expiresAt, preview }
+const activeSnoozes = new Map();
+
+// Active floating notification windows: id → BrowserWindow
+const notificationWindows = new Map();
+
+const NOTIF_WIDTH = 360;
+const NOTIF_HEIGHT = 150;
+const NOTIF_MARGIN = 16;
+const NOTIF_GAP = 10;
+
+function createNotificationWindow(id, _preview) {
+  // Close any existing notification for this id
+  if (notificationWindows.has(id)) {
+    notificationWindows.get(id).destroy();
+    notificationWindows.delete(id);
+  }
+
+  const { workArea } = screen.getPrimaryDisplay();
+  const stackOffset = notificationWindows.size * (NOTIF_HEIGHT + NOTIF_GAP);
+
+  const win = new BrowserWindow({
+    width: NOTIF_WIDTH,
+    height: NOTIF_HEIGHT,
+    x: workArea.x + workArea.width - NOTIF_WIDTH - NOTIF_MARGIN,
+    y: workArea.y + workArea.height - NOTIF_HEIGHT - NOTIF_MARGIN - stackOffset,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    focusable: true,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'notification-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  win.setAlwaysOnTop(true, 'floating');
+
+  if (isDev) {
+    win.loadURL(`http://localhost:5173/notification.html?id=${id}`);
+  } else {
+    win.loadFile(path.join(__dirname, 'dist/notification.html'), {
+      query: { id: String(id) },
+    });
+  }
+
+  notificationWindows.set(id, win);
+  win.on('closed', () => notificationWindows.delete(id));
+}
+
+ipcMain.on('notification-resize', (event, height) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  win.setSize(NOTIF_WIDTH, Math.max(80, Math.min(400, Math.round(height))));
+  if (!win.isVisible()) win.show();
+});
+
+ipcMain.on('notification-dismiss', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.destroy();
+});
+
+ipcMain.on('notification-focus-item', (event) => {
+  // Identify which entry this notification belongs to
+  const notifWin = BrowserWindow.fromWebContents(event.sender);
+  let entryId = null;
+  for (const [id, w] of notificationWindows) {
+    if (w === notifWin) { entryId = id; break; }
+  }
+
+  if (notifWin) notifWin.destroy();
+
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+    if (entryId !== null) mainWindow.webContents.send('snooze-focus', { id: entryId });
+  }
+});
 
 function createWindow() {
   if (app.dock) app.dock.setIcon(path.join(__dirname, 'assets/icon.png'));
@@ -191,22 +279,31 @@ ipcMain.handle('get-history', (event, searchQuery) => {
   return results;
 });
 
-ipcMain.handle('delete-entry', (event, id) => {
+ipcMain.handle('delete-entry', (_event, id) => {
+  if (activeSnoozes.has(id)) {
+    clearTimeout(activeSnoozes.get(id).handle);
+    activeSnoozes.delete(id);
+  }
+  if (notificationWindows.has(id)) {
+    notificationWindows.get(id).destroy();
+  }
   db.run('DELETE FROM history WHERE id = ?', [id]);
   saveDatabaseToDisk();
 });
 
-ipcMain.handle('update-tags', (event, id, tags) => {
+ipcMain.handle('update-tags', (_event, id, tags) => {
   db.run('UPDATE history SET tags = ? WHERE id = ?', [JSON.stringify(tags), id]);
   saveDatabaseToDisk();
 });
 
 ipcMain.handle('clear-history', () => {
+  for (const { handle } of activeSnoozes.values()) clearTimeout(handle);
+  activeSnoozes.clear();
   db.run('DELETE FROM history');
   saveDatabaseToDisk();
 });
 
-ipcMain.on('copy-to-os', (event, type, content) => {
+ipcMain.on('copy-to-os', (_event, type, content) => {
   if (type === 'image') {
     lastImageDataUrl = content;
     clipboard.writeImage(nativeImage.createFromDataURL(content));
@@ -214,6 +311,53 @@ ipcMain.on('copy-to-os', (event, type, content) => {
     lastText = content;
     clipboard.writeText(content);
   }
+});
+
+ipcMain.handle('set-snooze', (_event, id, durationMs) => {
+  if (activeSnoozes.has(id)) {
+    clearTimeout(activeSnoozes.get(id).handle);
+  }
+
+  const res = db.exec('SELECT content, type FROM history WHERE id = ?', [id]);
+  if (!res.length) return;
+  const [content, type] = res[0].values[0];
+  const preview = type === 'text' || type === 'file'
+    ? String(content).substring(0, 80)
+    : 'Image';
+
+  const expiresAt = Date.now() + durationMs;
+
+  const handle = setTimeout(() => {
+    activeSnoozes.delete(id);
+
+    if (mainWindow) mainWindow.webContents.send('snooze-expired', { id });
+
+    createNotificationWindow(id, preview);
+  }, durationMs);
+
+  activeSnoozes.set(id, { handle, expiresAt, preview });
+});
+
+ipcMain.handle('cancel-snooze', (_event, id) => {
+  if (activeSnoozes.has(id)) {
+    clearTimeout(activeSnoozes.get(id).handle);
+    activeSnoozes.delete(id);
+  }
+});
+
+ipcMain.handle('get-notification-data', (_event, id) => {
+  const res = db.exec('SELECT type, content FROM history WHERE id = ?', [id]);
+  if (!res.length) return null;
+  const [type, content] = res[0].values[0];
+  return { type, content };
+});
+
+ipcMain.handle('get-active-snoozes', () => {
+  const result = {};
+  for (const [id, { expiresAt }] of activeSnoozes) {
+    result[id] = expiresAt;
+  }
+  return result;
 });
 
 app.whenReady().then(async () => {
