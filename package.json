@@ -27,6 +27,7 @@
       "dist/**/*",
       "main.js",
       "preload.js",
+      "notification-preload.js",
       "node_modules/**/*",
       "!node_modules/.cache"
     ],
@@ -34,6 +35,10 @@
       {
         "from": "node_modules/sql.js/dist/sql-wasm.wasm",
         "to": "."
+      },
+      {
+        "from": "assets/icon.png",
+        "to": "assets/icon.png"
       }
     ],
     "mac": {

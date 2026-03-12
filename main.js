@@ -135,7 +135,12 @@ ipcMain.on('notification-focus-item', (event) => {
 });
 
 function createWindow() {
-  if (app.dock) app.dock.setIcon(path.join(__dirname, 'assets/icon.png'));
+  if (app.dock) {
+    const iconPath = isDev
+      ? path.join(__dirname, 'assets/icon.png')
+      : path.join(process.resourcesPath, 'assets/icon.png');
+    app.dock.setIcon(iconPath);
+  }
 
   mainWindow = new BrowserWindow({
     width: 450,
