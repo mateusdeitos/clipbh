@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
 
-// Configuração para suportar o ambiente do Electron
 export default defineConfig({
   plugins: [react()],
-  base: './', // Importante para que o Electron encontre os assets no build
+  base: './',
   server: {
     port: 5173,
     strictPort: true,
@@ -12,5 +12,11 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-  }
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        notification: resolve(__dirname, 'notification.html'),
+      },
+    },
+  },
 });
