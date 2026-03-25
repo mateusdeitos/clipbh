@@ -5,6 +5,7 @@
   "type": "module",
   "main": "main.js",
   "author": "Mateus Campos Deitos (@mateusdeitos)",
+  "email": "mate.deitos@hotmail.com",
   "description": "Clipboard History Manager",
   "license": "MIT",
   "repository": {
